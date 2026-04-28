@@ -4,3 +4,7 @@ __pycache__/
 .DS_Store
 .env
 *.local.*
+
+# 开发文件
+CLAUDE.md
+CHANGELOG.md

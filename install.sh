@@ -8,7 +8,7 @@
 set -euo pipefail
 
 REPO_URL="${AGENTSAILS_REPO:-https://github.com/VoidWalkerAether/agentskills}"
-BRANCH="${AGENTSAILS_BRANCH:-main}"
+BRANCH="${AGENTSAILS_BRANCH:-master}"
 
 echo "=== agentskills installer ==="
 

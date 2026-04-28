@@ -53,7 +53,7 @@ agentskills sync
 
 如果 `agentskills` 命令不可用，先运行安装脚本：
 ```bash
-curl -fsSL https://raw.githubusercontent.com/VoidWalkerAether/agentskills/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/VoidWalkerAether/agentskills/master/install.sh | bash
 ```
 或手动安装：
 ```bash

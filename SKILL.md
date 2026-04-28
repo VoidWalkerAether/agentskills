@@ -106,3 +106,22 @@ opencode() {
     command opencode "$@"
 }
 ```
+
+## 使用注意
+
+### 删除技能：两种区别
+
+| 方式 | 影响 |
+|------|------|
+| 手动删除（如 `rm ~/.claude/skills/xxx`） | 只移除该智能体的 symlink，其他智能体不受影响 |
+| `agentskills remove <name>` | 全局删除，所有智能体都不能再使用 |
+
+### 更新技能
+
+- `agentskills update` 只对通过 git 安装的技能有效
+- 从本地路径安装的技能不支持自动更新
+
+### 安装方式区别
+
+- `agentskills install` → 直接写入统一存储，所有智能体立即可用
+- 手动复制技能到某个智能体目录 → 仅该智能体可见，需运行 `agentskills sync` 才能全局生效

@@ -65,3 +65,44 @@ ln -s ~/.agent-skills/agentskills-tool/agentskills.py ~/.local/bin/agentskills
 mkdir -p ~/.claude/skills/agentskills
 ln -s ~/.agent-skills/agentskills-tool/SKILL.md ~/.claude/skills/agentskills/SKILL.md
 ```
+
+## 自动同步配置
+
+安装脚本会自动配置以下 hook。如需手动配置：
+
+### Claude Code
+在 `~/.claude/settings.json` 中添加：
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "agentskills sync 2>/dev/null || true" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### OpenClaw
+启用 `boot-md` hook，并在 `~/.openclaw/BOOT.md` 中写入：
+```
+When starting, first run `agentskills sync 2>/dev/null || true` to sync all skills.
+```
+
+### Hermes
+与 OpenClaw 相同，在 `~/.hermes/BOOT.md` 中写入：
+```
+When starting, first run `agentskills sync 2>/dev/null || true` to sync all skills.
+```
+
+### OpenCode
+OpenCode 暂无原生 hook 支持。建议在 shell profile（`~/.bashrc` / `~/.zshrc`）中添加：
+```bash
+opencode() {
+    agentskills sync 2>/dev/null || true
+    command opencode "$@"
+}
+```

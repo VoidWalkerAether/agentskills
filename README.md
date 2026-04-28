@@ -9,7 +9,7 @@ Cross-agent skill synchronization tool. Install a skill once, use it everywhere.
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/VoidWalkerAether/agentskills/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/VoidWalkerAether/agentskills/master/install.sh | bash
 ```
 
 ## Usage
@@ -78,7 +78,7 @@ ln -s ~/.agent-skills/agentskills-tool/SKILL.md ~/.claude/skills/agentskills/SKI
 ### 一行安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/VoidWalkerAether/agentskills/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/VoidWalkerAether/agentskills/master/install.sh | bash
 ```
 
 安装后自动完成：

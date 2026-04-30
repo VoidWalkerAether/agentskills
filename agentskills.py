@@ -28,6 +28,10 @@ AGENT_DIRS = {
     "hermes": Path.home() / ".hermes" / "skills",
 }
 
+# Agents that use file copy instead of symlinks.
+# These agents use os.walk(followlinks=False) so symlinks are invisible.
+COPY_AGENTS = {"hermes", "opencode"}
+
 
 # === Helpers ===
 
@@ -67,15 +71,10 @@ def list_agent_skills(agent_name):
     return results
 
 
-def is_symlink(path):
-    """Check if a path is a symlink."""
-    return path.is_symlink()
-
-
 def scan_all_skills():
     """Scan all agent directories.
 
-    Returns dict: {skill_name: {agent: "symlink"|"local", path: Path}}
+    Returns dict: {skill_name: {agent: {"type": "symlink"|"copy"|"local", "path": Path}}}
     """
     skills = {}
     for agent, agent_dir in AGENT_DIRS.items():
@@ -86,8 +85,14 @@ def scan_all_skills():
                 name = entry.name
                 if name not in skills:
                     skills[name] = {}
+                if entry.is_symlink():
+                    skill_type = "symlink"
+                elif agent in COPY_AGENTS:
+                    skill_type = "copy"
+                else:
+                    skill_type = "local"
                 skills[name][agent] = {
-                    "type": "symlink" if is_symlink(entry) else "local",
+                    "type": skill_type,
                     "path": entry,
                 }
     return skills
@@ -118,6 +123,30 @@ def unlink_skill(agent_name, skill_name):
     link = agent_dir / skill_name
     if link.is_symlink():
         link.unlink()
+
+
+def copy_skill(agent_name, skill_name):
+    """Copy a skill from unified storage to an agent's skills dir."""
+    agent_dir = AGENT_DIRS.get(agent_name)
+    src = AGENT_SKILLS_DIR / skill_name
+    dst = agent_dir / skill_name
+    if not src.exists():
+        return False
+    # Replace existing symlink with real copy
+    if dst.is_symlink():
+        dst.unlink()
+    if dst.exists():
+        return True
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(str(src), str(dst))
+    return True
+
+
+def link_skill_for_agent(agent_name, skill_name):
+    """Create symlink or copy depending on agent config."""
+    if agent_name in COPY_AGENTS:
+        return copy_skill(agent_name, skill_name)
+    return symlink_skill(agent_name, skill_name)
 
 
 # === Commands ===
@@ -189,9 +218,9 @@ def cmd_sync(args):
                 shutil.move(str(src), str(dst))
                 migrated.append(f"{skill_name} (from {best_agent})")
 
-            # Create symlinks for all agents
+            # Create links (symlink or copy) for all agents
             for agent in AGENT_DIRS:
-                if symlink_skill(agent, skill_name):
+                if link_skill_for_agent(agent, skill_name):
                     symlinked.append(f"{skill_name} -> {agent}")
 
             registry[skill_name] = {
@@ -203,16 +232,27 @@ def cmd_sync(args):
         elif symlink_agents:
             # All copies are already symlinks, just ensure all agents have them
             for agent in AGENT_DIRS:
-                if agent not in agents and symlink_skill(agent, skill_name):
+                if agent not in agents and link_skill_for_agent(agent, skill_name):
                     symlinked.append(f"{skill_name} -> {agent}")
 
-    # Phase 2: ensure symlinks for all registry entries
+    # Phase 1.5: convert symlinks to copies for COPY_AGENTS
+    all_skills_now = scan_all_skills()
+    for skill_name, agents in all_skills_now.items():
+        for agent in COPY_AGENTS:
+            if agent in agents and agents[agent]["type"] == "symlink":
+                link = agents[agent]["path"]
+                if link.is_symlink():
+                    link.unlink()
+                    copy_skill(agent, skill_name)
+                    symlinked.append(f"{skill_name} -> {agent} (symlink→copy)")
+
+    # Phase 2: ensure links for all registry entries
     for skill_name in registry:
         for agent in AGENT_DIRS:
             agent_link = AGENT_DIRS[agent] / skill_name
             if not agent_link.exists() and not agent_link.is_symlink():
                 if (AGENT_SKILLS_DIR / skill_name).exists():
-                    if symlink_skill(agent, skill_name):
+                    if link_skill_for_agent(agent, skill_name):
                         symlinked.append(f"{skill_name} -> {agent} (restored)")
 
     save_registry(registry)
@@ -273,6 +313,8 @@ def cmd_list(args):
                 info = agents[agent]
                 if info["type"] == "symlink":
                     row += f" {'✓ symlink':<12}"
+                elif info["type"] == "copy":
+                    row += f" {'✓ copy':<12}"
                 else:
                     row += f" {'⚠ local':<12}"
             else:
@@ -327,7 +369,7 @@ def cmd_install(args):
         else:
             print(f"[warn] No SKILL.md found in '{skill_name}'. May not be detected by all agents.")
 
-    # Register and symlink
+    # Register and link
     registry[skill_name] = {
         "source": "manual",
         "url": source if source.startswith("http") else None,
@@ -337,7 +379,7 @@ def cmd_install(args):
     save_registry(registry)
 
     for agent in AGENT_DIRS:
-        symlink_skill(agent, skill_name)
+        link_skill_for_agent(agent, skill_name)
 
     print(f"[ok] Installed '{skill_name}' to {dst}")
 
@@ -354,9 +396,14 @@ def cmd_remove(args):
         print(f"[error] Skill '{skill_name}' not found.")
         return
 
-    # Remove symlinks from all agents
+    # Remove links from all agents
     for agent in AGENT_DIRS:
-        unlink_skill(agent, skill_name)
+        if agent in COPY_AGENTS:
+            link = AGENT_DIRS[agent] / skill_name
+            if link.exists() and not link.is_symlink():
+                shutil.rmtree(link)
+        else:
+            unlink_skill(agent, skill_name)
 
     # Remove from unified storage
     if unified.exists() and not unified.is_symlink():
